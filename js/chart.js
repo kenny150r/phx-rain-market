@@ -4,6 +4,17 @@
 
 let probChart = null;
 
+function chartTheme() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  return {
+    grid: dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(16, 24, 40, 0.05)',
+    tick: dark ? '#8d96a0' : '#98a2b3',
+    tooltipBg: dark ? '#2d333b' : '#101828',
+    line: dark ? '#00c07d' : '#00b072',
+    faintAlpha: dark ? '66' : '55',
+  };
+}
+
 function fmtHour(h) {
   const clamped = Math.min(Math.max(h, 0), 24);
   let hh = Math.floor(clamped) % 24;
@@ -15,13 +26,14 @@ function fmtHour(h) {
 
 function renderChart(market) {
   const ctx = document.getElementById('probChart').getContext('2d');
+  const theme = chartTheme();
 
   const sourceDatasets = SOURCES
     .filter((s) => market.traces[s.id] && market.traces[s.id].length > 1)
     .map((s) => ({
       label: s.name,
       data: market.traces[s.id].map((pt) => ({ x: pt.h, y: pt.p * 100 })),
-      borderColor: s.color + '55',
+      borderColor: s.color + theme.faintAlpha,
       borderWidth: 1.25,
       pointRadius: 0,
       pointHitRadius: 6,
@@ -36,7 +48,7 @@ function renderChart(market) {
   const consensusDataset = {
     label: 'Market (consensus)',
     data: market.consensusPts.map((pt) => ({ x: pt.h, y: pt.p * 100 })),
-    borderColor: '#00b072',
+    borderColor: theme.line,
     backgroundColor: gradient,
     borderWidth: 2.5,
     pointRadius: 0,
@@ -60,7 +72,7 @@ function renderChart(market) {
         grid: { display: false },
         ticks: {
           stepSize: 4,
-          color: '#98a2b3',
+          color: theme.tick,
           font: { family: 'Inter', size: 10 },
           callback: (v) => (v === 24 ? '12 AM' : fmtHour(v)),
         },
@@ -68,11 +80,11 @@ function renderChart(market) {
       y: {
         min: 0,
         max: 100,
-        grid: { color: 'rgba(16, 24, 40, 0.05)' },
+        grid: { color: theme.grid },
         border: { display: false },
         ticks: {
           stepSize: 25,
-          color: '#98a2b3',
+          color: theme.tick,
           font: { family: 'Inter', size: 10 },
           callback: (v) => v + '%',
         },
@@ -81,7 +93,7 @@ function renderChart(market) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#101828',
+        backgroundColor: theme.tooltipBg,
         titleFont: { family: 'Inter', size: 11 },
         bodyFont: { family: 'Inter', size: 11 },
         displayColors: false,

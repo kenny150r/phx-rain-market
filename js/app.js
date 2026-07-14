@@ -4,8 +4,106 @@
 
 const REFRESH_MS = 5 * 60e3;
 
+/* ----------------------------- settings --------------------------- */
+
+const SETTINGS_KEY = 'prm-settings';
+
+function loadSettings() {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch { return {}; }
+}
+
+const settings = Object.assign({ theme: 'system', odds: 'betting' }, loadSettings());
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+
+function saveSettings() {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* ignore */ }
+}
+
+function applyTheme() {
+  const t = settings.theme === 'system' ? (systemDark.matches ? 'dark' : 'light') : settings.theme;
+  document.documentElement.dataset.theme = t;
+}
+
+let lastMarket = null;
+
+function rerender() {
+  if (!lastMarket) return;
+  renderHeader(lastMarket);
+  renderChart(lastMarket);
+  renderSources(lastMarket);
+}
+
+function initSettings() {
+  applyTheme();
+  const btn = document.getElementById('settingsBtn');
+  const pop = document.getElementById('settingsPop');
+
+  const sync = () => {
+    document.querySelectorAll('.seg').forEach((seg) => {
+      const key = seg.dataset.setting;
+      seg.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('active', b.dataset.val === settings[key]);
+      });
+    });
+  };
+  sync();
+
+  const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const opening = pop.hidden;
+    pop.hidden = !opening;
+    btn.setAttribute('aria-expanded', String(opening));
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.hidden && !pop.contains(e.target)) close();
+  });
+
+  document.querySelectorAll('.seg button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const key = b.closest('.seg').dataset.setting;
+      if (settings[key] === b.dataset.val) return;
+      settings[key] = b.dataset.val;
+      saveSettings();
+      sync();
+      if (key === 'theme') applyTheme();
+      rerender();
+    });
+  });
+
+  systemDark.addEventListener('change', () => {
+    if (settings.theme === 'system') {
+      applyTheme();
+      rerender();
+    }
+  });
+}
+
+/* --------------------------- odds formats ------------------------- */
+
 function priceCents(p) {
   return Math.min(99, Math.max(1, Math.round(p * 100)));
+}
+
+// American (moneyline) odds implied by probability p, rounded the way
+// sportsbooks quote them (coarser steps for longer odds).
+function americanOdds(p) {
+  const q = Math.min(Math.max(p, 0.01), 0.99);
+  const raw = q >= 0.5 ? (-100 * q) / (1 - q) : (100 * (1 - q)) / q;
+  const mag = Math.abs(raw);
+  const step = mag >= 1000 ? 50 : mag >= 300 ? 10 : 5;
+  const rounded = Math.round(raw / step) * step;
+  return (rounded > 0 ? '+' : '') + rounded;
+}
+
+// Yes/No display strings for one probability, in the active format.
+// Cents stay complementary (yes + no = 100¢) like real contracts.
+function oddsPair(p) {
+  if (settings.odds === 'cents') {
+    const yes = priceCents(p);
+    return { yes: yes + '¢', no: (100 - yes) + '¢' };
+  }
+  return { yes: americanOdds(p), no: americanOdds(1 - p) };
 }
 
 function fmtTimeMs(tMs, day) {
@@ -65,13 +163,13 @@ function renderHeader(market) {
     yesBtn.className = 'trade-btn resolved-yes';
     yesBtn.innerHTML = 'Yes <span class="price">Resolved ✓</span>';
     noBtn.className = 'trade-btn no';
-    noBtn.innerHTML = 'No <span class="price">0¢</span>';
+    noBtn.innerHTML = `No <span class="price">${settings.odds === 'cents' ? '0¢' : '—'}</span>`;
   } else if (finalConsensus != null) {
-    const yes = priceCents(finalConsensus);
+    const odds = oddsPair(finalConsensus);
     yesBtn.className = 'trade-btn yes';
-    yesBtn.innerHTML = `Yes <span class="price">${yes}¢</span>`;
+    yesBtn.innerHTML = `Yes <span class="price">${odds.yes}</span>`;
     noBtn.className = 'trade-btn no';
-    noBtn.innerHTML = `No <span class="price">${100 - yes}¢</span>`;
+    noBtn.innerHTML = `No <span class="price">${odds.no}</span>`;
   }
 }
 
@@ -86,10 +184,10 @@ function renderSources(market) {
       } else if (s.p == null) {
         odds = `<div class="odds-sq err">n/a</div>`;
       } else {
-        const yes = priceCents(s.p);
+        const pair = oddsPair(s.p);
         odds =
-          `<div class="odds-sq yes"><span class="odds-side">Yes</span>${yes}¢</div>` +
-          `<div class="odds-sq no"><span class="odds-side">No</span>${100 - yes}¢</div>`;
+          `<div class="odds-sq yes"><span class="odds-side">Yes</span>${pair.yes}</div>` +
+          `<div class="odds-sq no"><span class="odds-side">No</span>${pair.no}</div>`;
       }
       const pctText = s.p == null ? 'unavailable' : Math.round(s.p * 100) + '% implied';
       const updated = s.updatedMs
@@ -172,6 +270,7 @@ async function loadAndRender() {
   }
 
   const market = buildMarket({ day, currents, histories, observations });
+  lastMarket = market;
   renderHeader(market);
   renderChart(market);
   renderSources(market);
@@ -183,6 +282,7 @@ async function loadAndRender() {
 
 async function main() {
   cachePurgeOld();
+  initSettings();
   try {
     await loadAndRender();
   } catch (e) {
