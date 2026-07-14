@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Will it rain in Phoenix today?</title>
+  <meta name="description" content="A mock prediction-market view of today's rain probability at Phoenix Sky Harbor (KPHX), built from NOAA NBM, HRRR, GFS, ECMWF, ICON, GEM and NWS forecasts.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌧️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="logo">PHX<span class="logo-dot">·</span>Markets</div>
+      <div class="topbar-right">
+        <span class="mock-badge">MOCK MARKET</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card market-card">
+      <div class="market-head">
+        <div class="ticker-row">
+          <span class="ticker-chip" id="ticker">RAINPHX</span>
+          <span class="volume" id="volume"></span>
+        </div>
+        <h1 class="question">Will it rain in Phoenix today?</h1>
+        <div class="prob-row">
+          <div class="big-prob">
+            <span id="bigProb">–</span><span class="pct">%</span>
+          </div>
+          <div class="prob-meta">
+            <span class="chance-label">chance</span>
+            <span class="change-chip" id="changeChip" hidden></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="resolve-banner" id="resolveBanner" hidden></div>
+
+      <div class="chart-wrap">
+        <canvas id="probChart" aria-label="Implied probability of rain in Phoenix today versus time" role="img"></canvas>
+      </div>
+      <div class="chart-footer">
+        <span id="chartRange">Today · 12:00 AM – 11:59 PM MST</span>
+        <span class="legend" id="chartLegend"></span>
+      </div>
+
+      <div class="trade-row" id="tradeRow">
+        <button class="trade-btn yes" id="yesBtn" type="button">Yes <span class="price" id="yesPrice">–¢</span></button>
+        <button class="trade-btn no" id="noBtn" type="button">No <span class="price" id="noPrice">–¢</span></button>
+      </div>
+      <div class="rules-line">
+        Resolves <strong>YES</strong> if KPHX (Sky Harbor) records ≥ 0.01&Prime; of rain between 12:00 AM and 11:59 PM MST today.
+      </div>
+    </section>
+
+    <section class="card sources-card">
+      <div class="sources-head">
+        <h2>Sources &amp; implied odds</h2>
+        <span class="sources-sub">Each forecast source, priced like a market</span>
+      </div>
+      <div id="sourcesList" class="sources-list">
+        <div class="loading-row" id="loadingRow">Loading forecast sources…</div>
+      </div>
+    </section>
+
+    <section class="card obs-card" id="obsCard" hidden>
+      <h2>Observed at KPHX</h2>
+      <div id="obsSummary" class="obs-summary"></div>
+    </section>
+
+    <footer class="foot">
+      <p><strong>Not a real market.</strong> This is a demo that dresses public weather-model output up as prediction-market prices. No trading occurs.</p>
+      <p>Data: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (NOAA NBM, HRRR, GFS · ECMWF · DWD ICON · CMC GEM) and <a href="https://api.weather.gov/" target="_blank" rel="noopener">NOAA/NWS</a> (forecast &amp; KPHX METARs).</p>
+      <p id="lastUpdated"></p>
+    </footer>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/chart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
