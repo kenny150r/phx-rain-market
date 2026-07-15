@@ -33,6 +33,10 @@ let lastMarket = null;
 let lastObservations = [];
 let loadSeq = 0; // guards against stale renders after a location change
 
+function setLoading(on) {
+  document.body.classList.toggle('loading', !!on);
+}
+
 function rerender() {
   if (!lastMarket) return;
   renderHeader(lastMarket);
@@ -60,16 +64,53 @@ function renderLocationStatics() {
     `≥ 0.01″ of rain between 12:00 AM and 11:59 PM local time today.`;
 }
 
-function setLocation(loc) {
-  settings.location = loc;
-  saveSettings();
+/* ------------------------------ URL sync -------------------------- */
+
+// Location travels in the query string so a view can be shared.
+function parseUrlLocation() {
+  const q = new URLSearchParams(location.search);
+  const lat = parseFloat(q.get('lat'));
+  const lon = parseFloat(q.get('lon'));
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return { lat, lon, name: q.get('name') || null };
+}
+
+function syncUrl(loc) {
+  const q = new URLSearchParams();
+  q.set('lat', loc.lat.toFixed(4));
+  q.set('lon', loc.lon.toFixed(4));
+  if (loc.name) q.set('name', loc.name);
+  try { history.replaceState(null, '', location.pathname + '?' + q.toString()); } catch { /* ignore */ }
+}
+
+// getCurrentPosition as a promise that resolves null on any failure.
+function geolocate() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 12000, maximumAge: 600e3 }
+    );
+  });
+}
+
+// Point the whole app at a location: optionally persist it, reflect it
+// in the URL, reset the view to a loading state, and refetch.
+function applyLocation(loc, { persist = true } = {}) {
+  settings.location = persist ? loc : null;
+  if (persist) saveSettings();
+  syncUrl(loc);
   renderLocationStatics();
   lastMarket = null;
+  setLoading(true);
   document.getElementById('sourcesList').innerHTML =
     '<div class="loading-row">Loading forecast sources…</div>';
   document.getElementById('bigProb').textContent = '–';
+  document.getElementById('changeChip').hidden = true;
   document.getElementById('obsCard').hidden = true;
-  loadAndRender().catch((e) => renderError(e.message || 'unexpected error'));
+  return loadAndRender().catch((e) => renderError(e.message || 'unexpected error'));
 }
 
 function locHint(msg, isError) {
@@ -95,7 +136,7 @@ function initLocationControls() {
         try {
           const loc = await locationFromCoords(pos.coords.latitude, pos.coords.longitude);
           locHint('');
-          setLocation(loc);
+          applyLocation(loc);
         } catch (e) {
           locHint('Could not resolve your location: ' + e.message, true);
         }
@@ -126,7 +167,7 @@ function initLocationControls() {
             const loc = await locationFromCoords(c.lat, c.lon, c.name);
             if (!loc.tz && c.tz) loc.tz = c.tz;
             locHint('');
-            setLocation(loc);
+            applyLocation(loc);
           });
         });
       } catch {
@@ -194,6 +235,14 @@ function initSettings() {
 const MARKET_VIG = 0.02;
 const HALF_VIG = MARKET_VIG / 2;
 
+// Below this implied probability there's effectively no market to make
+// on Yes, so we show a "no market" placeholder instead of a price.
+const MARKET_MIN_P = 0.01;
+
+function hasMarket(p) {
+  return p != null && p >= MARKET_MIN_P;
+}
+
 function clampProb(p) {
   return Math.min(0.99, Math.max(0.01, p));
 }
@@ -248,13 +297,22 @@ function renderHeader(market) {
     `Today · 12:00 AM – 11:59 PM ${day.tzAbbr}`;
 
   const bigProb = document.getElementById('bigProb');
+  const pctSign = bigProb.nextElementSibling;
   const changeChip = document.getElementById('changeChip');
   if (finalConsensus == null) {
     bigProb.textContent = '–';
+    if (pctSign) pctSign.style.visibility = 'hidden';
+    changeChip.hidden = true;
+  } else if (!resolution && finalConsensus < MARKET_MIN_P) {
+    // Sub-1% — treat as an untraded market rather than a hard "0%".
+    bigProb.textContent = '<1';
+    if (pctSign) pctSign.style.visibility = 'visible';
+    bigProb.parentElement.style.color = '';
     changeChip.hidden = true;
   } else {
     const pct = Math.round(finalConsensus * 100);
     bigProb.textContent = String(pct);
+    if (pctSign) pctSign.style.visibility = 'visible';
     bigProb.parentElement.style.color = resolution ? 'var(--green)' : '';
     const first = consensusPts.length ? consensusPts[0].p : finalConsensus;
     const delta = Math.round((finalConsensus - first) * 100);
@@ -281,6 +339,12 @@ function renderHeader(market) {
     yesBtn.innerHTML = 'Yes <span class="price">Resolved ✓</span>';
     noBtn.className = 'trade-btn no';
     noBtn.innerHTML = `No <span class="price">${settings.odds === 'cents' ? '0¢' : '—'}</span>`;
+  } else if (!hasMarket(finalConsensus)) {
+    // No liquidity on Yes; show a bid-only placeholder.
+    yesBtn.className = 'trade-btn muted';
+    yesBtn.innerHTML = 'Yes <span class="price">no market</span>';
+    noBtn.className = 'trade-btn muted';
+    noBtn.innerHTML = 'No <span class="price">—</span>';
   } else if (finalConsensus != null) {
     const odds = oddsPair(finalConsensus);
     yesBtn.className = 'trade-btn yes';
@@ -300,6 +364,8 @@ function renderSources(market) {
         odds = `<div class="odds-sq resolved">YES<span class="odds-side">resolved</span></div>`;
       } else if (s.p == null) {
         odds = `<div class="odds-sq err">n/a</div>`;
+      } else if (!hasMarket(s.p)) {
+        odds = `<div class="odds-sq nomkt">—<span class="odds-side">no market</span></div>`;
       } else {
         const pair = oddsPair(s.p);
         odds =
@@ -352,6 +418,7 @@ function renderError(message) {
 
 async function loadAndRender() {
   const seq = ++loadSeq;
+  setLoading(true);
   const loc = activeLocation();
   const day = dayInfoFor(loc);
   const activeSources = sourcesFor(loc);
@@ -383,6 +450,7 @@ async function loadAndRender() {
   const observations = await obsPromise;
 
   if (seq !== loadSeq) return; // a newer load (location change) superseded this one
+  setLoading(false);
 
   const anyData = Object.values(currents).some((c) => c && !c.error) ||
     Object.values(histories).some((h) => h.length);
@@ -404,13 +472,36 @@ async function loadAndRender() {
     'Last updated ' + fmtTimeMs(Date.now(), day) + ' · refreshes every 5 minutes.';
 }
 
+// Resolve where to start: a shared URL wins, then a saved choice, then
+// the device's location, falling back to Phoenix.
+async function resolveInitialLocation() {
+  const fromUrl = parseUrlLocation();
+  if (fromUrl) {
+    try { return { loc: await locationFromCoords(fromUrl.lat, fromUrl.lon, fromUrl.name), persist: true }; }
+    catch { /* fall through */ }
+  }
+  const saved = settings.location;
+  if (saved && saved.lat != null && saved.tz && saved.stationId) {
+    return { loc: saved, persist: true };
+  }
+  const geo = await geolocate();
+  if (geo) {
+    try { return { loc: await locationFromCoords(geo.lat, geo.lon), persist: true }; }
+    catch { /* fall through */ }
+  }
+  return { loc: DEFAULT_LOCATION, persist: false };
+}
+
 async function main() {
   cachePurgeOld();
   initSettings();
   renderLocationStatics();
+  setLoading(true);
   try {
-    await loadAndRender();
+    const { loc, persist } = await resolveInitialLocation();
+    await applyLocation(loc, { persist });
   } catch (e) {
+    setLoading(false);
     renderError(e.message || 'unexpected error');
   }
   setInterval(() => {

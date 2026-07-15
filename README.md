@@ -21,9 +21,11 @@ Live site: https://kenny150r.github.io/phx-rain-market/
 
 The gear menu provides:
 
-- **Location** — use the browser's geolocation or search for a US city.
-  The market resolves at the nearest of ~110 bundled major-airport ASOS
-  stations; forecasts use the exact chosen coordinates.
+- **Location** — defaults to your device location (falls back to Phoenix
+  if denied), or search for a US city. The market resolves at the nearest
+  of ~110 bundled major-airport ASOS stations; forecasts use the exact
+  chosen coordinates. The location is stored in the URL (`?lat=&lon=&name=`)
+  so a view can be shared or bookmarked.
 - **Theme** — system (default), light, or dark.
 - **Odds format** — betting-style American odds (default) or cents.
 
