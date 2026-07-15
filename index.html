@@ -33,6 +33,14 @@
       </div>
       <div class="settings-pop" id="settingsPop" hidden>
         <div class="settings-group">
+          <div class="settings-label">Location</div>
+          <div class="loc-current" id="locCurrent">Phoenix, AZ · KPHX</div>
+          <button type="button" class="loc-btn" id="useMyLocation">Use my location</button>
+          <input type="search" class="loc-search" id="locSearch" placeholder="Search US city…" autocomplete="off">
+          <div class="loc-results" id="locResults"></div>
+          <div class="loc-hint" id="locHint" hidden></div>
+        </div>
+        <div class="settings-group">
           <div class="settings-label">Theme</div>
           <div class="seg" data-setting="theme" role="group" aria-label="Theme">
             <button type="button" data-val="system">System</button>
@@ -58,7 +66,7 @@
           <span class="ticker-chip" id="ticker">RAINPHX</span>
           <span class="volume" id="volume"></span>
         </div>
-        <h1 class="question">Will it rain in Phoenix today?</h1>
+        <h1 class="question" id="question">Will it rain in Phoenix today?</h1>
         <div class="prob-row">
           <div class="big-prob">
             <span id="bigProb">–</span><span class="pct">%</span>
@@ -84,7 +92,7 @@
         <button class="trade-btn yes" id="yesBtn" type="button">Yes <span class="price" id="yesPrice">–¢</span></button>
         <button class="trade-btn no" id="noBtn" type="button">No <span class="price" id="noPrice">–¢</span></button>
       </div>
-      <div class="rules-line">
+      <div class="rules-line" id="rulesLine">
         Resolves <strong>YES</strong> if KPHX (Sky Harbor) records ≥ 0.01&Prime; of rain between 12:00 AM and 11:59 PM MST today.
       </div>
     </section>
@@ -100,7 +108,7 @@
     </section>
 
     <section class="card obs-card" id="obsCard" hidden>
-      <h2>Observed at KPHX</h2>
+      <h2 id="obsTitle">Observed at KPHX</h2>
       <div id="obsSummary" class="obs-summary"></div>
     </section>
 
@@ -112,6 +120,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <script src="js/stations.js"></script>
   <script src="js/sources.js"></script>
   <script src="js/model.js"></script>
   <script src="js/chart.js"></script>

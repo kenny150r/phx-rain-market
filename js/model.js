@@ -50,7 +50,7 @@ function hourlyProbFractions(kind, hours) {
 function dailyProbFrom(kind, hours, fromHour) {
   const fracs = hourlyProbFractions(kind, hours);
   const start = Math.max(0, Math.floor(fromHour));
-  const rest = fracs.slice(start, 24);
+  const rest = fracs.slice(start);
   // Partial first hour: scale by the remaining fraction of that hour.
   if (rest.length && rest[0] != null && fromHour > start) {
     rest[0] *= 1 - (fromHour - start);
@@ -68,7 +68,7 @@ const LAG_WEIGHTS = { qpf: [0.55, 0.3, 0.15], prob: [1] };
 function sourceValueAt(source, runs, tMs, day) {
   const avail = runs.filter((r) => r.effMs <= tMs);
   if (!avail.length) return null;
-  const fromHour = Math.min(Math.max(localHour(tMs, day.dayStartUtcMs), 0), 23.99);
+  const fromHour = Math.min(Math.max(localHour(tMs, day.dayStartUtcMs), 0), day.hoursInDay - 0.01);
   const weights = LAG_WEIGHTS[source.histKind || source.kind] || [1];
   const recent = avail.slice(-weights.length).reverse(); // newest first
   let num = 0;
@@ -126,12 +126,13 @@ function detectMeasurableRain(observations, day) {
 /* --------------------------- market build ------------------------- */
 
 // Assemble everything the UI needs: per-source current values, chart
-// traces, consensus trace, and resolution state.
-function buildMarket({ day, currents, histories, observations }) {
+// traces, consensus trace, and resolution state. `activeSources` is
+// the location-filtered subset of SOURCES.
+function buildMarket({ day, activeSources, currents, histories, observations }) {
   const resolution = detectMeasurableRain(observations, day);
-  const nowHour = Math.min(localHour(day.nowMs, day.dayStartUtcMs), 24);
+  const nowHour = Math.min(localHour(day.nowMs, day.dayStartUtcMs), day.hoursInDay);
 
-  const sources = SOURCES.map((s) => {
+  const sources = activeSources.map((s) => {
     const cur = currents[s.id];
     const runs = histories[s.id] || [];
     let p = null;
@@ -161,7 +162,7 @@ function buildMarket({ day, currents, histories, observations }) {
 
   // Chart traces: per source, a point at each run's effective time plus "now".
   const traces = {};
-  for (const s of SOURCES) {
+  for (const s of activeSources) {
     const runs = histories[s.id] || [];
     if (!runs.length) continue;
     const pts = [];
@@ -180,7 +181,7 @@ function buildMarket({ day, currents, histories, observations }) {
   const consensusPts = [];
   for (let h = 0; h <= nowHour + 1e-9; h += gridStep) {
     const t = day.dayStartUtcMs + Math.min(h, nowHour) * 3600e3;
-    const entries = SOURCES
+    const entries = activeSources
       .filter((s) => (histories[s.id] || []).length)
       .map((s) => ({ weight: s.weight, p: sourceValueAt(s, histories[s.id], t, day) }));
     const c = consensusOf(entries);

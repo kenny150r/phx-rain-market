@@ -1,20 +1,34 @@
 # phx-rain-market
 
-**Will it rain in Phoenix today?** — a mock, Kalshi-style prediction-market view of
-today's rain probability at Phoenix Sky Harbor (KPHX).
+**Will it rain today?** — a mock, Kalshi-style prediction-market view of
+today's rain probability, resolving at the nearest major-airport ASOS
+station (defaults to Phoenix Sky Harbor, KPHX).
 
 Live site: https://kenny150r.github.io/phx-rain-market/
 
 ## What it shows
 
-- A market-style headline probability that KPHX records **≥ 0.01″ of rain**
-  between 12:00 AM and 11:59 PM MST today.
+- A market-style headline probability that the local station records
+  **≥ 0.01″ of rain** between 12:00 AM and 11:59 PM local time today.
 - An intraday chart of implied probability vs. time, reconstructed from
   archived weather-model runs.
-- A list of forecast sources, each priced with Yes/No "cents" like market
-  contracts.
-- If measurable rain is observed at KPHX (parsed from raw METARs), the market
-  resolves YES and the chart pins to 100%.
+- A list of forecast sources, each priced like a market contract — American
+  betting odds (+220 / −110) by default, or Kalshi-style cents.
+- If measurable rain is observed at the station (parsed from raw METARs),
+  the market resolves YES and the chart pins to 100%.
+
+## Settings
+
+The gear menu provides:
+
+- **Location** — use the browser's geolocation or search for a US city.
+  The market resolves at the nearest of ~110 bundled major-airport ASOS
+  stations; forecasts use the exact chosen coordinates.
+- **Theme** — system (default), light, or dark.
+- **Odds format** — betting-style American odds (default) or cents.
+
+Outside the continental US (e.g. Hawaii, Alaska), CONUS-only sources
+(NBM, HRRR, NWS gridpoints) drop out and the global models carry the market.
 
 ## How it works
 

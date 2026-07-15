@@ -16,7 +16,7 @@ function chartTheme() {
 }
 
 function fmtHour(h) {
-  const clamped = Math.min(Math.max(h, 0), 24);
+  const clamped = Math.min(Math.max(h, 0), 25);
   let hh = Math.floor(clamped) % 24;
   const mm = Math.round((clamped % 1) * 60);
   const ampm = hh < 12 ? 'AM' : 'PM';
@@ -68,13 +68,13 @@ function renderChart(market) {
       x: {
         type: 'linear',
         min: 0,
-        max: 24,
+        max: market.day.hoursInDay,
         grid: { display: false },
         ticks: {
           stepSize: 4,
           color: theme.tick,
           font: { family: 'Inter', size: 10 },
-          callback: (v) => (v === 24 ? '12 AM' : fmtHour(v)),
+          callback: (v) => (v === market.day.hoursInDay ? '12 AM' : fmtHour(v)),
         },
       },
       y: {
@@ -98,7 +98,7 @@ function renderChart(market) {
         bodyFont: { family: 'Inter', size: 11 },
         displayColors: false,
         callbacks: {
-          title: (items) => (items.length ? fmtHour(items[0].parsed.x) + ' MST' : ''),
+          title: (items) => (items.length ? fmtHour(items[0].parsed.x) + ' ' + market.day.tzAbbr : ''),
           label: (item) => `${item.dataset.label}: ${Math.round(item.parsed.y)}%`,
         },
       },
