@@ -23,7 +23,8 @@ The gear menu provides:
 
 - **Location** — defaults to your device location (falls back to Phoenix
   if denied), or search for a US city. The market resolves at the nearest
-  of ~110 bundled major-airport ASOS stations; forecasts use the exact
+  of ~2,200 bundled ASOS/AWOS stations (auto-generated and validated against
+  api.weather.gov; see `test/build-stations.mjs`); forecasts use the exact
   chosen coordinates. The location is stored in the URL (`?lat=&lon=&name=`)
   so a view can be shared or bookmarked.
 - **Theme** — system (default), light, or dark.
