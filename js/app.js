@@ -188,14 +188,19 @@ function initSettings() {
 
 /* --------------------------- odds formats ------------------------- */
 
-function priceCents(p) {
-  return Math.min(99, Math.max(1, Math.round(p * 100)));
+// Market overround (vig / juice). Fair odds imply Yes + No = 100%; real
+// books and prediction markets pad each side so the two prices sum to a
+// bit over 100%. ~2% total => roughly 1% added to each side's price.
+const MARKET_VIG = 0.02;
+const HALF_VIG = MARKET_VIG / 2;
+
+function clampProb(p) {
+  return Math.min(0.99, Math.max(0.01, p));
 }
 
-// American (moneyline) odds implied by probability p, rounded the way
-// sportsbooks quote them (coarser steps for longer odds).
-function americanOdds(p) {
-  const q = Math.min(Math.max(p, 0.01), 0.99);
+// American (moneyline) odds for an already-padded implied probability,
+// rounded the way sportsbooks quote them (coarser steps for longer odds).
+function americanOdds(q) {
   const raw = q >= 0.5 ? (-100 * q) / (1 - q) : (100 * (1 - q)) / q;
   const mag = Math.abs(raw);
   const step = mag >= 1000 ? 50 : mag >= 300 ? 10 : 5;
@@ -203,14 +208,15 @@ function americanOdds(p) {
   return (rounded > 0 ? '+' : '') + rounded;
 }
 
-// Yes/No display strings for one probability, in the active format.
-// Cents stay complementary (yes + no = 100¢) like real contracts.
+// Yes/No display strings for a fair probability p, in the active format,
+// with the market vig applied so the two sides don't sum to exactly 100.
 function oddsPair(p) {
+  const yesP = clampProb(p + HALF_VIG);
+  const noP = clampProb(1 - p + HALF_VIG);
   if (settings.odds === 'cents') {
-    const yes = priceCents(p);
-    return { yes: yes + '¢', no: (100 - yes) + '¢' };
+    return { yes: Math.round(yesP * 100) + '¢', no: Math.round(noP * 100) + '¢' };
   }
-  return { yes: americanOdds(p), no: americanOdds(1 - p) };
+  return { yes: americanOdds(yesP), no: americanOdds(noP) };
 }
 
 /* ------------------------------ helpers --------------------------- */
